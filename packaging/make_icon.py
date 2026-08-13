@@ -16,19 +16,20 @@ from PIL import Image, ImageDraw  # noqa: E402
 
 from cpzradio import theme  # noqa: E402
 
-SIZE = 128
+SIZE = 256
 
 
 def build() -> Image.Image:
     # Supersample, then downscale, so the curves come out smooth.
     scale = 4
     side = SIZE * scale
-    image = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    image = Image.new("RGB", (side, side), theme.PANEL)
     draw = ImageDraw.Draw(image)
 
-    draw.rounded_rectangle(
-        (0, 0, side - 1, side - 1), radius=24 * scale, fill=theme.PANEL, outline=theme.LINE, width=2 * scale
-    )
+    # Full square, no baked rounded corners or transparency: the store
+    # guidance is to preserve the complete square artwork and let the launcher
+    # apply any masking itself.
+    draw.rectangle((0, 0, side - 1, side - 1), fill=theme.PANEL)
 
     # Broadcast arcs radiating from the antenna base.
     origin = (side * 0.30, side * 0.66)

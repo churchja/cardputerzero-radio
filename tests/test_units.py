@@ -267,6 +267,43 @@ class TestKeyMapping(unittest.TestCase):
         self.assertEqual(runtime.char_for("enter", False), "")
 
 
+class TestPanelDetection(unittest.TestCase):
+    """The CP0 LCD is usually /dev/fb1; /dev/fb0 is often HDMI."""
+
+    def _proc_fb(self, content: str) -> str:
+        handle = tempfile.NamedTemporaryFile("w", suffix=".fb", delete=False)
+        handle.write(content)
+        handle.close()
+        self.addCleanup(os.unlink, handle.name)
+        return handle.name
+
+    def test_picks_st7789_node_not_fb0(self):
+        path = self._proc_fb("0 vc4drmfb\n1 fb_st7789v\n")
+        self.assertEqual(runtime.panel_from_proc_fb(path), "/dev/fb1")
+
+    def test_finds_panel_at_any_index(self):
+        path = self._proc_fb("0 fb_st7789v\n")
+        self.assertEqual(runtime.panel_from_proc_fb(path), "/dev/fb0")
+
+    def test_no_panel_returns_none(self):
+        path = self._proc_fb("0 vc4drmfb\n")
+        self.assertIsNone(runtime.panel_from_proc_fb(path))
+
+    def test_missing_proc_fb_returns_none(self):
+        self.assertIsNone(runtime.panel_from_proc_fb("/nonexistent/proc/fb"))
+
+    def test_malformed_lines_are_skipped(self):
+        path = self._proc_fb("garbage\n\nx fb_st7789v\n1 fb_st7789v\n")
+        self.assertEqual(runtime.panel_from_proc_fb(path), "/dev/fb1")
+
+    def test_fallback_order_makes_fb0_the_last_resort(self):
+        self.assertEqual(runtime.FB_CANDIDATES[-1], "/dev/fb0")
+        self.assertLess(
+            runtime.FB_CANDIDATES.index("/dev/fb1"),
+            runtime.FB_CANDIDATES.index("/dev/fb0"),
+        )
+
+
 class TestPixelPacking(unittest.TestCase):
     def test_rgb565_endianness_and_length(self):
         from PIL import Image

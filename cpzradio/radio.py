@@ -13,6 +13,10 @@ from .player import CONNECTING, ERROR, PLAYING, MpvNotInstalled, MpvPlayer
 from .recorder import Recorder
 from .scheduler import SLEEP_PRESETS, Alarm, AlarmConfig, SleepTimer
 
+# APPLaunch contract: short Esc is the app-level back key, long Esc exits the
+# app. Binding short Esc to exit is explicitly disallowed.
+ESC_LONG_PRESS = 0.8
+
 DAY_PRESETS = (
     ((0, 1, 2, 3, 4), "weekdays"),
     ((5, 6), "weekends"),
@@ -57,6 +61,7 @@ class RadioApp:
 
         self._image = None
         self._muted_level: int | None = None
+        self._esc_down_at: float | None = None
         # settings_rows() runs every frame; querying systemd there would fork
         # `systemctl` 20 times a second, so the status is cached instead.
         self._autostart_status = "?"
@@ -290,7 +295,33 @@ class RadioApp:
 
     # -- key handling ------------------------------------------------------
 
+    def _escape_back(self) -> None:
+        """One level back. On the root screen there is nowhere to go."""
+        if self.screen == "search":
+            if self.search_focus == "results" and self.search_results:
+                self.search_focus = "query"
+            else:
+                self.screen = "now"
+            return
+        if self.screen != "now":
+            self.screen = "now"
+            return
+        self.set_notice("hold ESC to exit", 1.5)
+
     def on_key(self, event) -> None:
+        # Esc is handled before anything else because it is the only key whose
+        # release matters: short = back, long = exit.
+        if event.name == "escape":
+            if event.pressed:
+                if not event.repeat and self._esc_down_at is None:
+                    self._esc_down_at = time.monotonic()
+            else:
+                held_from = self._esc_down_at
+                self._esc_down_at = None
+                if held_from is None or time.monotonic() - held_from < ESC_LONG_PRESS:
+                    self._escape_back()
+            return
+
         if not event.pressed:
             return
         if self.screen == "search":
@@ -306,12 +337,6 @@ class RadioApp:
             else:
                 self.volume.nudge(self.volume.STEP if name == "right" else -self.volume.STEP)
                 self.settings.save()
-            return
-        if name == "escape":
-            if self.screen == "now":
-                self.running = False
-            else:
-                self.screen = "now"
             return
         if name == "q":
             self.running = False
@@ -399,12 +424,6 @@ class RadioApp:
 
     def _keys_search(self, event) -> None:
         name = event.name
-        if name == "escape":
-            if self.search_focus == "results" and self.search_results:
-                self.search_focus = "query"
-            else:
-                self.screen = "now"
-            return
         if name == "enter":
             if self.search_focus == "results" and self.search_results:
                 station = self.search_results[self.search_index]
@@ -448,6 +467,11 @@ class RadioApp:
 
         if self.notice and now >= self._notice_until:
             self.notice = ""
+
+        # Long Esc exits while still held, rather than waiting for the release.
+        if self._esc_down_at is not None and now - self._esc_down_at >= ESC_LONG_PRESS:
+            self._esc_down_at = None
+            self.running = False
 
         self.player.poll(now)
         self.net.poll(now)

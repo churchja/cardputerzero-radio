@@ -218,7 +218,7 @@ def draw_now_playing(painter: Painter, app) -> None:
         painter.text(x + 5, 125, text_value, chip_color, 9)
         x += width + 6
 
-    painter.footer("SPACE play  UP/DN tune  L/R vol  S list  / find  G setup")
+    painter.footer("SPACE play  ↑↓ tune  ←→ vol  S list  / find  G setup  hold ESC exit")
 
 
 def draw_stations(painter: Painter, app) -> None:

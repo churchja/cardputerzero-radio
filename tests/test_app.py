@@ -77,6 +77,12 @@ def press(app, name, char=""):
     app.on_key(KeyEvent(name, char, True, False))
 
 
+def tap_escape(app):
+    """A short Esc: press then release inside the long-press threshold."""
+    app.on_key(KeyEvent("escape", "", True, False))
+    app.on_key(KeyEvent("escape", "", False, False))
+
+
 class AppTest(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -201,14 +207,41 @@ class TestNavigation(AppTest):
             press(self.app, "tab")
             self.assertEqual(self.app.screen, "now")
 
-    def test_escape_backs_out_then_quits(self):
+    def test_short_escape_goes_back_but_never_exits(self):
+        """APPLaunch contract: short Esc is back and must not quit the app."""
         press(self.app, "s")
         self.assertEqual(self.app.screen, "stations")
-        press(self.app, "escape")
+        tap_escape(self.app)
         self.assertEqual(self.app.screen, "now")
         self.assertTrue(self.app.running)
-        press(self.app, "escape")
+        # Again on the root screen: still must not exit.
+        tap_escape(self.app)
+        self.assertTrue(self.app.running)
+        self.assertIn("hold ESC", self.app.notice)
+
+    def test_long_escape_exits(self):
+        self.app.on_key(KeyEvent("escape", "", True, False))
+        self.assertTrue(self.app.running)
+        # Exits while still held, without waiting for the release.
+        self.app.update(now=self.app._esc_down_at + radio.ESC_LONG_PRESS + 0.01)
         self.assertFalse(self.app.running)
+
+    def test_escape_auto_repeat_does_not_restart_the_hold_timer(self):
+        self.app.on_key(KeyEvent("escape", "", True, False))
+        start = self.app._esc_down_at
+        for _ in range(5):
+            self.app.on_key(KeyEvent("escape", "", True, True))  # auto-repeat
+        self.assertEqual(self.app._esc_down_at, start)
+
+    def test_escape_backs_out_of_search_results_first(self):
+        press(self.app, "/")
+        self.app.search_results = [self.app.visible_stations[0]]
+        self.app.search_focus = "results"
+        tap_escape(self.app)
+        self.assertEqual(self.app.search_focus, "query")
+        self.assertEqual(self.app.screen, "search")
+        tap_escape(self.app)
+        self.assertEqual(self.app.screen, "now")
 
     def test_q_quits(self):
         press(self.app, "q")
@@ -276,7 +309,7 @@ class TestSearchScreen(AppTest):
 
     def test_escape_returns_to_now_playing(self):
         press(self.app, "/")
-        press(self.app, "escape")
+        tap_escape(self.app)
         self.assertEqual(self.app.screen, "now")
 
     def test_empty_query_search_is_rejected(self):

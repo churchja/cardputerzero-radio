@@ -31,15 +31,25 @@ from . import theme
 FBIOGET_VSCREENINFO = 0x4600
 FBIOGET_FSCREENINFO = 0x4602
 
-# The stock image exposes the LCD under a stable alias; LV_LINUX_FBDEV_DEVICE is
-# what the vendor's own LVGL apps honour, so we accept it as an override too.
-FB_CANDIDATES = ("/dev/fb_lcd", "/dev/fb0", "/dev/fb1")
+# LV_LINUX_FBDEV_DEVICE is what the vendor's own LVGL apps honour, so we accept
+# it as an override too.
 FB_ENV_VARS = ("CPZRADIO_FBDEV", "APPLAUNCH_LINUX_FBDEV_DEVICE", "LV_LINUX_FBDEV_DEVICE")
 
-# The CP0 matrix keyboard is an I2C device; this by-path node is what the
-# vendor's binaries reference.  Globbed, because the platform address could
-# differ across board revisions.
+# /proc/fb lists one "<index> <name>" line per framebuffer.  The CardputerZero
+# LCD registers as fb_st7789v and is commonly /dev/fb1 -- /dev/fb0 is usually
+# HDMI.  Choosing fb0 blindly paints the UI onto a screen nobody is looking at,
+# so the panel is always resolved by name first.
+PROC_FB = "/proc/fb"
+PANEL_MARKER = "st7789"
+
+# Only consulted when /proc/fb cannot answer.  fb0 is deliberately last.
+FB_CANDIDATES = ("/dev/fb_lcd", "/dev/fb1", "/dev/fb0")
+
+# The CP0 matrix keyboard is an I2C device; this by-path node is the one the
+# vendor's own binaries reference.  The globs follow it, in case the platform
+# address differs across board revisions.
 KBD_ENV_VARS = ("CPZRADIO_KBD", "LV_LINUX_KEYBOARD_DEVICE")
+KBD_DEFAULT = "/dev/input/by-path/platform-3f804000.i2c-event"
 KBD_BY_PATH_GLOBS = (
     "/dev/input/by-path/*i2c*-event*",
     "/dev/input/by-path/*-event-kbd",
@@ -328,8 +338,11 @@ class EvdevKeyboard:
             if value:
                 return [value]
         found: list[str] = []
+        # The documented CP0 keypad node, tried before any pattern matching.
+        if os.path.exists(KBD_DEFAULT):
+            found.append(KBD_DEFAULT)
         for pattern in KBD_BY_PATH_GLOBS:
-            found.extend(sorted(glob.glob(pattern)))
+            found.extend(p for p in sorted(glob.glob(pattern)) if p not in found)
         # Fall back to scanning every input node.
         return found or sorted(list_devices())
 
@@ -493,11 +506,39 @@ class HeadlessBackend(Backend):
 # ---------------------------------------------------------------------------
 
 
+def panel_from_proc_fb(path: str = PROC_FB) -> str | None:
+    """Return the ST7789V node from /proc/fb, e.g. '/dev/fb1'.
+
+    Equivalent to the documented one-liner:
+        awk '/fb_st7789v/ {print "/dev/fb" $1}' /proc/fb
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            lines = handle.read().splitlines()
+    except OSError:
+        return None
+
+    for line in lines:
+        parts = line.split(None, 1)
+        if len(parts) != 2:
+            continue
+        index, name = parts[0].strip(), parts[1].strip().lower()
+        if PANEL_MARKER in name and index.isdigit():
+            return f"/dev/fb{index}"
+    return None
+
+
 def resolve_fbdev() -> str | None:
     for var in FB_ENV_VARS:
         value = os.environ.get(var)
         if value and os.path.exists(value):
             return value
+
+    # Resolve the LCD by name before falling back to guessing node numbers.
+    panel = panel_from_proc_fb()
+    if panel and os.path.exists(panel):
+        return panel
+
     for path in FB_CANDIDATES:
         if os.path.exists(path):
             return path

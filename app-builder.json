@@ -1,0 +1,24 @@
+{
+  "package_name": "cardputerzero-radio",
+  "version": "0.2.0",
+  "app_name": "Radio",
+  "bin_name": "cardputerzero-radio",
+  "description": "Internet radio player for the CardputerZero",
+
+  "store": {
+    "summary": "Internet radio with station search, favourites, sleep timer and alarm",
+    "description": "Stream internet radio on your CardputerZero.\n\nShips with a curated station list you can edit, plus live search across the Radio Browser directory so you can find and save new stations on-device.\n\n- Favourites, and scrolling track titles from stations that broadcast them\n- Automatic reconnect when a stream drops\n- Sleep timer, and a wake-to-radio alarm\n- Record the live stream to the SD card\n- Optional boot-to-radio autostart, toggled in Settings\n- Tells you plainly when Wi-Fi is missing instead of blaming the station\n\nDriven entirely from the keyboard. SPACE plays, arrows tune and set volume, / searches, G opens settings. Short ESC goes back, hold ESC to exit.\n\nRequires an internet connection.",
+    "categories": ["Audio", "Music", "Internet", "Utilities"],
+    "screenshots": [
+      "store/screenshots/01-now-playing.png",
+      "store/screenshots/02-stations.png",
+      "store/screenshots/03-search.png",
+      "store/screenshots/04-settings.png"
+    ],
+    "icon": "packaging/icon.png",
+    "license": "MIT",
+    "source_repo": "https://github.com/churchja/cardputerzero-radio",
+    "author": { "github": "churchja" },
+    "permissions": []
+  }
+}
