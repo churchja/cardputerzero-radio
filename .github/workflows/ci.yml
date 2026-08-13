@@ -11,6 +11,10 @@ on:
         description: "Tag to publish a release as, e.g. v0.2.0. Leave blank to just build."
         required: false
         default: ""
+      deb_revision:
+        description: "Debian revision for the built .deb. Blank = run number. Use 3 to match the store submission."
+        required: false
+        default: ""
 
 jobs:
   test:
@@ -59,9 +63,17 @@ jobs:
         run: python -m pip install Pillow
 
       - name: Build .deb
+        # The run number keeps ordinary CI builds unique, but a release needs a
+        # revision you choose, so the asset matches what was published elsewhere.
+        env:
+          REQUESTED_REVISION: ${{ inputs.deb_revision }}
         run: |
+          set -euo pipefail
           chmod +x packaging/build-deb.sh
-          DEB_REVISION="${GITHUB_RUN_NUMBER}" packaging/build-deb.sh
+          revision="${REQUESTED_REVISION:-}"
+          [ -n "$revision" ] || revision="${GITHUB_RUN_NUMBER}"
+          echo "Building with Debian revision: $revision"
+          DEB_REVISION="$revision" packaging/build-deb.sh
 
       - name: Verify package installs cleanly
         # Cheap sanity check that the archive is well formed and the paths
