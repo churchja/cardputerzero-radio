@@ -39,6 +39,10 @@ jobs:
   package:
     runs-on: ubuntu-latest
     needs: test
+    # Needed by `gh release create`; repos default to a read-only GITHUB_TOKEN,
+    # which fails the release step with a 403.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
