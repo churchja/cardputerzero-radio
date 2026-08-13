@@ -8,7 +8,8 @@ from datetime import datetime
 from . import autostart, config, ui
 from .library import Library, RadioBrowser, SearchJob, Station, resolve_stream_url
 from .mixer import VolumeControl
-from .player import CONNECTING, PLAYING, MpvNotInstalled, MpvPlayer
+from .net import NetworkMonitor
+from .player import CONNECTING, ERROR, PLAYING, MpvNotInstalled, MpvPlayer
 from .recorder import Recorder
 from .scheduler import SLEEP_PRESETS, Alarm, AlarmConfig, SleepTimer
 
@@ -32,6 +33,9 @@ class RadioApp:
         self.sleep = SleepTimer()
         self.alarm = Alarm(AlarmConfig.from_dict(self.settings.get("alarm", {})))
         self.browser = RadioBrowser()
+        self.net = NetworkMonitor()
+        self.net.poll()
+        self._last_player_state = self.player.state
 
         self.running = True
         self.screen = "now"
@@ -104,7 +108,10 @@ class RadioApp:
     def tune(self, station: Station | None, announce: bool = True) -> None:
         if station is None:
             return
-        url = resolve_stream_url(station.url)
+        # Unwrapping a .pls/.m3u means an HTTP fetch; with no network that is
+        # a guaranteed multi-second stall in the render loop, so skip it and
+        # let mpv fail fast instead.
+        url = station.url if not self.net.usable else resolve_stream_url(station.url)
         try:
             self.player.play(url, station.name)
         except MpvNotInstalled as exc:
@@ -159,6 +166,11 @@ class RadioApp:
         if not query:
             self.set_notice("type something to search", 2)
             return
+        if not self.net.usable:
+            # Radio Browser would burn ~45s of stacked timeouts before failing.
+            self.net.invalidate()
+            self.set_notice(self.net.detail or "no network", 3)
+            return
         if self.search_job and not self.search_job.finished:
             return
         self._searched_query = query
@@ -167,6 +179,10 @@ class RadioApp:
         self.search_job = SearchJob(self.browser, query)
 
     def search_status(self) -> str:
+        if not self.net.usable:
+            # Not net.detail: that text tells you to press SPACE, which is
+            # advice for the Now Playing screen, not this one.
+            return f"{self.net.headline} — searching needs a connection"
         if self.search_job and not self.search_job.finished:
             return "searching…"
         if self.search_job and self.search_job.error:
@@ -434,6 +450,14 @@ class RadioApp:
             self.notice = ""
 
         self.player.poll(now)
+        self.net.poll(now)
+
+        # A stream that just failed is the best hint that the network changed,
+        # so re-check immediately rather than waiting out the normal interval.
+        if self.player.state == ERROR and self._last_player_state != ERROR:
+            self.net.invalidate()
+        self._last_player_state = self.player.state
+
         self._collect_search()
 
         if self.sleep.expired(now):

@@ -41,6 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def run_smoke(outdir: str) -> int:
     """Render each screen once.  Never starts mpv, so it is safe in CI."""
+    from cpzradio import net as netmod
     from cpzradio.library import Station
 
     app = RadioApp(autoplay=False)
@@ -66,6 +67,9 @@ def run_smoke(outdir: str) -> int:
         rendered += 1
 
     rendered = 0
+    # Pin the network as usable so the online screens render deterministically
+    # regardless of whether the build machine has connectivity.
+    app.net._state = netmod.ONLINE
     for screen in ("now", "stations", "search", "settings"):
         app.screen = screen
         capture(screen)
@@ -86,6 +90,13 @@ def run_smoke(outdir: str) -> int:
         app.alarm.config.enabled = True
         app.screen = "now"
         capture("now-playing")
+
+    # Offline is a first-class screen, not just an error path.
+    app.net._state = netmod.OFFLINE
+    app.screen = "now"
+    capture("offline")
+    app.screen = "search"
+    capture("offline-search")
 
     app.player.shutdown()
     where = f" -> {outdir}" if outdir else ""

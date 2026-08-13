@@ -141,7 +141,7 @@ class RadioBrowser:
         self.servers = list(servers)
         self._base: str | None = None
 
-    def base_url(self, timeout: float = 5.0) -> str:
+    def base_url(self, timeout: float = 3.0) -> str:
         if self._base:
             return self._base
         try:
@@ -159,7 +159,7 @@ class RadioBrowser:
         self._base = self.servers[0]
         return self._base
 
-    def search(self, query: str, limit: int = 40, timeout: float = 10.0) -> list[Station]:
+    def search(self, query: str, limit: int = 40, timeout: float = 6.0) -> list[Station]:
         params = urllib.parse.urlencode(
             {
                 "name": query,
@@ -170,7 +170,10 @@ class RadioBrowser:
             }
         )
         last_error: Exception | None = None
-        for base in [self.base_url()] + self.servers:
+        # Deduped: base_url() usually resolves to servers[0], and retrying the
+        # same dead host just multiplies the timeout the user waits through.
+        candidates = list(dict.fromkeys([self.base_url()] + self.servers))
+        for base in candidates:
             url = f"{base}/json/stations/search?{params}"
             try:
                 request = urllib.request.Request(

@@ -13,7 +13,7 @@ from pathlib import Path
 
 APP_ID = "cardputerzero-radio"
 APP_NAME = "CardputerZero Radio"
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 USER_AGENT = f"{APP_ID}/{VERSION}"
 
 # Where the .deb installs the app payload.

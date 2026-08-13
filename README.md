@@ -36,7 +36,7 @@ Grab the `.deb` from [Releases](https://github.com/churchja/cardputerzero-radio/
 copy it to the device, and:
 
 ```sh
-sudo apt install ./cardputerzero-radio_0.1.0-1_arm64.deb
+sudo apt install ./cardputerzero-radio_0.2.0-1_arm64.deb
 ```
 
 Dependencies (`mpv`, `python3-pil`, `python3-evdev`, `python3-numpy`,
@@ -120,6 +120,26 @@ bitrate = 128
 straight to mpv, which handles it natively.
 
 ## Features worth knowing about
+
+**No Wi-Fi.** Streaming needs the internet, so the app checks for it rather
+than blaming the station. It tells three cases apart:
+
+| State | Shown as | Meaning |
+| --- | --- | --- |
+| No link | **NO WI-FI** | Not associated with any network |
+| Link, nothing routes | **NO INTERNET** | Associated (SSID is named) but traffic goes nowhere — dead AP or captive portal |
+| Online | *nothing* | The stream itself is the broken part |
+
+With no connection, Now Playing is replaced by a full-screen notice telling you
+to connect — and that your stations and favourites are still saved. Every other
+screen carries a red **NO WI-FI** flag in the header. Search refuses instantly
+rather than stacking HTTP timeouts. Volume still works, and playback is still
+*attempted*, because a stream on your own LAN can work with no internet route
+at all.
+
+Link state is a local `/proc/net/route` read and the internet probe is a TCP
+connect on a worker thread, so neither ever stalls the render loop. Recovery is
+picked up within about five seconds.
 
 **Reconnect.** Streams drop. mpv is started with FFmpeg reconnect options, and
 on top of that the app retries on a 2→4→8→15→30 second backoff, resetting once

@@ -95,11 +95,19 @@ class Painter:
 
     # -- chrome ------------------------------------------------------------
 
-    def header(self, title: str, right: str = "") -> None:
+    def header(self, title: str, right: str = "", net=None) -> None:
         self.rect((0, 0, theme.WIDTH, theme.HEADER_H), fill=theme.PANEL)
         self.text(theme.PAD, 4, title, theme.TEXT, 11, True)
         stamp = right or datetime.now().strftime("%H:%M")
         self.text(theme.WIDTH - theme.PAD, 4, stamp, theme.MUTED, 10, anchor="ra")
+        # A persistent warning in the header means the cause is visible from
+        # every screen, not just the one that happened to fail.
+        if net is not None and not net.usable:
+            stamp_px = self.width_of(stamp, 10)
+            self.text(
+                theme.WIDTH - theme.PAD - stamp_px - 8, 5,
+                net.headline, theme.ERR, 9, True, anchor="ra",
+            )
         self.hline(0, theme.HEADER_H, theme.WIDTH, theme.LINE)
 
     def footer(self, hints: str, notice: str = "", notice_color: str = theme.ACCENT) -> None:
@@ -149,7 +157,23 @@ def _window(count: int, selected: int, rows: int) -> int:
 def draw_now_playing(painter: Painter, app) -> None:
     player = app.player
     station = app.current_station
-    painter.header("RADIO")
+    painter.header("RADIO", net=app.net)
+
+    # Losing the network is the most common reason nothing plays, and a bare
+    # "stream error" sends people debugging the wrong thing. Say it plainly
+    # and take over the screen, because nothing else here is actionable.
+    if not app.net.usable:
+        painter.rect((theme.PAD, 30, theme.WIDTH - theme.PAD, 96), outline=theme.ERR, radius=4)
+        painter.text(theme.WIDTH // 2, 42, app.net.headline, theme.ERR, 20, True, anchor="ma")
+        painter.text(theme.WIDTH // 2, 68, app.net.detail, theme.TEXT, 10, anchor="ma")
+        painter.text(
+            theme.WIDTH // 2, 82,
+            "Stations and favourites are saved and still here",
+            theme.DIM, 8, anchor="ma",
+        )
+        painter.volume_bar(theme.PAD, 108, theme.WIDTH - 2 * theme.PAD, app.volume.level)
+        painter.footer("Radio needs an internet connection to stream")
+        return
 
     name = station.name if station else "No station"
     painter.text(theme.PAD, 24, painter.ellipsize(name, theme.WIDTH - 2 * theme.PAD, 15, True), theme.TEXT, 15, True)
@@ -199,7 +223,7 @@ def draw_now_playing(painter: Painter, app) -> None:
 
 def draw_stations(painter: Painter, app) -> None:
     stations = app.visible_stations
-    painter.header("STATIONS", f"{len(stations)}")
+    painter.header("STATIONS", f"{len(stations)}", net=app.net)
 
     rows = 5
     row_h = 24
@@ -249,7 +273,7 @@ def draw_stations(painter: Painter, app) -> None:
 
 
 def draw_search(painter: Painter, app) -> None:
-    painter.header("SEARCH")
+    painter.header("SEARCH", net=app.net)
 
     # Query line
     painter.rect((theme.PAD, 22, theme.WIDTH - theme.PAD, 40), fill=theme.PANEL, outline=theme.LINE, radius=3)
@@ -262,7 +286,12 @@ def draw_search(painter: Painter, app) -> None:
 
     status = app.search_status()
     if status:
-        painter.text(theme.PAD, 45, status, theme.MUTED, 9)
+        offline = not app.net.usable
+        painter.text(
+            theme.PAD, 45,
+            painter.ellipsize(status, theme.WIDTH - 2 * theme.PAD, 9),
+            theme.ERR if offline else theme.MUTED, 9,
+        )
 
     results = app.search_results
     rows = 4
@@ -295,7 +324,7 @@ def draw_search(painter: Painter, app) -> None:
 
 
 def draw_settings(painter: Painter, app) -> None:
-    painter.header("SETTINGS")
+    painter.header("SETTINGS", net=app.net)
     items = app.settings_rows()
     rows = 6
     row_h = 20
