@@ -39,7 +39,6 @@ mkdir -p \
   "$STAGE/usr/share/APPLaunch/bin" \
   "$STAGE/usr/share/APPLaunch/applications" \
   "$STAGE/usr/share/APPLaunch/share/images" \
-  "$STAGE/usr/lib/systemd/user" \
   "$STAGE/usr/share/doc/$PKG"
 
 echo "==> staging payload"
@@ -57,7 +56,6 @@ chmod 755 "$STAGE/usr/share/APPLaunch/bin/$PKG"
 
 cp "$HERE/$PKG.desktop" "$STAGE/usr/share/APPLaunch/applications/"
 cp "$HERE/icon.png" "$STAGE/usr/share/APPLaunch/share/images/$PKG.png"
-cp "$HERE/$PKG.service" "$STAGE/usr/lib/systemd/user/"
 cp "$ROOT/LICENSE" "$STAGE/usr/share/doc/$PKG/copyright"
 
 INSTALLED_KB="$(du -sk "$STAGE" | cut -f1)"

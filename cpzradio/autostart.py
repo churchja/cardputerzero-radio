@@ -1,9 +1,13 @@
 """Optional boot-to-radio, toggled from inside the app.
 
 A *user* systemd unit is used deliberately: enabling it needs no root, so the
-toggle works from the app without sudo.  The package ships the unit in
-/usr/lib/systemd/user; when running from a git checkout we drop an equivalent
-copy into ~/.config/systemd/user instead.
+toggle works from the app without sudo.
+
+The unit is written into ~/.config/systemd/user at the moment the user turns
+autostart on, rather than shipped inside the package.  Installing it to
+/usr/lib/systemd/user would put a file in a shared system directory that is not
+named after this package, which the CardputerZero store rejects — and correctly
+so, since that is how one app could quietly shadow another's units.
 """
 
 from __future__ import annotations
@@ -13,8 +17,9 @@ import subprocess
 from pathlib import Path
 
 UNIT_NAME = "cardputerzero-radio.service"
-PACKAGED_UNIT = Path("/usr/lib/systemd/user") / UNIT_NAME
 USER_UNIT_DIR = Path.home() / ".config" / "systemd" / "user"
+# The launcher stub the .deb installs; present only on a real install.
+LAUNCHER = Path("/usr/share/APPLaunch/bin/cardputerzero-radio")
 
 UNIT_TEMPLATE = """\
 [Unit]
@@ -51,8 +56,8 @@ def _systemctl(*args: str, timeout: float = 8.0) -> tuple[int, str]:
 
 def default_exec_start() -> str:
     """Command systemd should run, matching how we were launched."""
-    if PACKAGED_UNIT.exists():
-        return "/usr/share/APPLaunch/bin/cardputerzero-radio"
+    if LAUNCHER.exists():
+        return str(LAUNCHER)
     import sys
 
     entry = Path(__file__).resolve().parent.parent / "app.py"
@@ -60,9 +65,7 @@ def default_exec_start() -> str:
 
 
 def ensure_unit() -> Path:
-    """Return a usable unit path, writing a fallback one if needed."""
-    if PACKAGED_UNIT.exists():
-        return PACKAGED_UNIT
+    """Write the user unit and return its path."""
     USER_UNIT_DIR.mkdir(parents=True, exist_ok=True)
     target = USER_UNIT_DIR / UNIT_NAME
     target.write_text(

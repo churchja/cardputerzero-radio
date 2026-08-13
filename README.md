@@ -10,7 +10,7 @@ optional boot-to-radio mode.
 > **Status:** written against the documented CP0 platform and verified end to
 > end in the desktop simulator, but **not yet run on real hardware** — the
 > device ships from Kickstarter later. Everything that can be checked without a
-> CP0 is checked in CI (60 unit tests, a five-screen render smoke test, and a
+> CP0 is checked in CI (104 unit tests, a seven-screen render smoke test, and a
 > package-layout assertion). Expect to tune the framebuffer/keyboard device
 > paths on first boot; see [Troubleshooting](#troubleshooting).
 
@@ -36,7 +36,7 @@ Grab the `.deb` from [Releases](https://github.com/churchja/cardputerzero-radio/
 copy it to the device, and:
 
 ```sh
-sudo apt install ./cardputerzero-radio_0.2.0-1_arm64.deb
+sudo apt install ./cardputerzero-radio_0.2.0-2_arm64.deb
 ```
 
 Dependencies (`mpv`, `python3-pil`, `python3-evdev`, `python3-numpy`,
@@ -159,7 +159,7 @@ running* — turn on autostart if you want it to be dependable.
 capture — mind what you do with the files.
 
 **Autostart.** Off by default. Toggle it in Settings: it enables a *user*
-systemd unit, so no `sudo` is involved.
+systemd unit written to `~/.config/systemd/user` when you switch it on, so no `sudo` is involved and the package installs nothing into shared system directories.
 
 ## Development
 
@@ -171,7 +171,7 @@ python app.py --desktop --scale 3
 ```
 
 ```sh
-python -m unittest discover -s tests -v   # 60 tests, no hardware, no network
+python -m unittest discover -s tests -v   # 104 tests, no hardware, no network
 python app.py --smoke frames              # render every screen to PNG
 ```
 
