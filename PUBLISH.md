@@ -50,7 +50,7 @@ Portal: <https://dev.cardputer.cc/#/upload>
 - [x] Listing copy and categories have been reviewed.
 - [x] Four clean 320 x 170 baseline screenshots exist.
 - [x] No credentials, tokens, or private server details are embedded.
-- [ ] The user explicitly approved external submission.
+- [x] The user explicitly approved external submission.
 
 ## Known gaps
 
@@ -62,8 +62,22 @@ Portal: <https://dev.cardputer.cc/#/upload>
 
 ## Submission Result
 
-- Status: `not submitted`
-- Submitted at: TODO
-- Portal message: TODO
-- Actions URL: TODO
-- Tracking or pull-request URL: TODO
+- Status: `submitted - awaiting server validation`
+- Submitted at: `2026-08-13T07:02:05Z`
+- Submitted version: `0.2.0-3` (arm64)
+- Portal message: "Submitted, server is performing final validation; a release PR
+  will be automatically generated upon approval."
+- Actions URL:
+  <https://github.com/CardputerZero/packages/actions/workflows/process-web-submission.yml>
+- Tracking or pull-request URL:
+  <https://github.com/CardputerZero/packages/pulls?q=is%3Apr+in%3Atitle+cardputerzero-radio+0.2.0-3>
+
+### Follow-up
+
+- Package name `cardputerzero-radio` is claimed first-come by `churchja` on this
+  first accepted submission; later versions must come from the same login.
+- Next version must be strictly newer than `0.2.0-3`.
+- Watch for a review comment about runtime dependencies: the package depends on
+  `mpv`, `python3-pil`, `python3-evdev`, `python3-numpy`, `alsa-utils` and
+  `fonts-dejavu-core`. These are stock Debian/Raspberry Pi OS packages, but the
+  install only succeeds if the device image's apt sources carry them.
