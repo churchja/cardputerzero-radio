@@ -10,7 +10,7 @@ optional boot-to-radio mode.
 > **Status:** written against the documented CP0 platform and verified end to
 > end in the desktop simulator, but **not yet run on real hardware** — the
 > device ships from Kickstarter later. Everything that can be checked without a
-> CP0 is checked in CI (104 unit tests, a seven-screen render smoke test, and a
+> CP0 is checked in CI (113 unit tests, a seven-screen render smoke test, and a
 > package-layout assertion). Expect to tune the framebuffer/keyboard device
 > paths on first boot; see [Troubleshooting](#troubleshooting).
 
@@ -23,7 +23,7 @@ normal Linux app rather than microcontroller firmware:
 
 | Concern | Approach |
 | --- | --- |
-| Display | 320×170 RGB565 framebuffer, drawn with Pillow and blitted to `/dev/fb_lcd` (falls back to `/dev/fb0`). 32bpp framebuffers are handled too. |
+| Display | 320×170 RGB565 framebuffer drawn with Pillow. The LCD is located **by name** — `/proc/fb` is scanned for `fb_st7789v` — because on this device `/dev/fb0` is usually HDMI and the panel is commonly `/dev/fb1`. 32bpp framebuffers are handled too. |
 | Input | The 46-key matrix keyboard read directly via `evdev`, preferring the I²C `by-path` node. Shift is tracked so you can type search queries. |
 | Audio | A resident `mpv` process in `--idle` mode, driven over its JSON IPC socket. Switching stations is one `loadfile`, not a process respawn. |
 | Volume | The ALSA mixer via `amixer` when a usable playback control exists, otherwise mpv's software volume. |
@@ -36,7 +36,7 @@ Grab the `.deb` from [Releases](https://github.com/churchja/cardputerzero-radio/
 copy it to the device, and:
 
 ```sh
-sudo apt install ./cardputerzero-radio_0.2.0-2_arm64.deb
+sudo apt install ./cardputerzero-radio_0.2.0-3_arm64.deb
 ```
 
 Dependencies (`mpv`, `python3-pil`, `python3-evdev`, `python3-numpy`,
@@ -65,8 +65,13 @@ CardputerZero menu.
 | `/` | Search Radio Browser |
 | `G` | Settings |
 | `TAB` | Cycle Now Playing → Stations → Settings |
-| `ESC` | Back (quits from Now Playing) |
+| `ESC` | Back one level |
+| `ESC` (hold) | Exit the app |
 | `Q` | Quit |
+
+`ESC` follows the APPLaunch navigation contract: a short press goes back, and
+only a hold of ~0.8s exits. On Settings, `←`/`→` edit the selected row instead
+of changing volume.
 
 ### Now Playing
 
@@ -171,7 +176,7 @@ python app.py --desktop --scale 3
 ```
 
 ```sh
-python -m unittest discover -s tests -v   # 104 tests, no hardware, no network
+python -m unittest discover -s tests -v   # 113 tests, no hardware, no network
 python app.py --smoke frames              # render every screen to PNG
 ```
 
@@ -208,9 +213,16 @@ mixer — Settings shows the detected backend as `alsa:<control>` or `mpv`. If i
 says `mpv`, `amixer` found no usable playback control and volume is applied in
 software.
 
-**Blank screen.** Confirm the panel device: `ls -l /dev/fb*`. If it is not
-`/dev/fb_lcd` or `/dev/fb0`, set `CPZRADIO_FBDEV`. A depth other than 16 or 32
-bpp is rejected with a clear message rather than drawing garbage.
+**Blank screen.** Check which node the LCD registered as:
+
+```sh
+cat /proc/fb
+awk '/fb_st7789v/ {print "/dev/fb" $1}' /proc/fb
+```
+
+The app uses that lookup automatically. If your image names the panel something
+else, point it at the right node with `CPZRADIO_FBDEV=/dev/fbN`. A depth other
+than 16 or 32 bpp is rejected with a clear message rather than drawing garbage.
 
 **Keys do nothing.** Confirm you are in the `input` group and find the right
 node with `ls -l /dev/input/by-path/`, then set `CPZRADIO_KBD`.
